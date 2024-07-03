@@ -67,92 +67,85 @@ def insert_vacancy_data(connection, vacancy_data):
 
 def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, salary=None ):
     vacancies_to_insert = []
-    try:
-        params = {}
-        if vacancies_title:
-            params['text'] = 'NAME:(' + vacancies_title + ')'
-        if city_id:
-            params['area'] = city_id
-        if salary:
-            params['salary'] = salary
-
+    page = 0
+    has_more_pages = True
+    while has_more_pages:
+        params = {
+            'text': vacancies_title,
+            'area': city_id,
+            'salary': salary,
+            'page': page
+        }
         response = requests.get('https://api.hh.ru/vacancies', params=params)
         vacancies = response.json()
+        page_items = vacancies.get('items', [])
+        for item in page_items:
+            name = item.get('name', '').lower()
+            if vacancies_title.lower() in name.lower():
+                salary_data = item.get('salary', {})
+                if salary_data:
+                    salary_from = salary_data.get('from')
+                    salary_to = salary_data.get('to')
+                    currency = salary_data.get('currency', 'RUR')
+                else:
+                    salary_from = None
+                    salary_to = None
+                    currency = 'RUR'
+                salary_str = 'не указана'
+                if salary_from and salary_to:
+                    salary_str = f"{salary_from} - {salary_to} {currency}"
+                elif salary_from:
+                    salary_str = f"от {salary_from} {currency}"
+                elif salary_to:
+                    salary_str = f"до {salary_to} {currency}"
 
-        if not vacancies['items']:
-            print('')
-            print('Вакансии не найдены. Проверьте правильность параметров.')
-            return
-
-        for item in vacancies.get('items', []):
-            if str(item.get('area', {}).get('id')) != str(city_id):
-                continue
-            salary_data = item.get('salary', {})
-            if salary_data:
-                salary_from = salary_data.get('from')
-                salary_to = salary_data.get('to')
-                currency = salary_data.get('currency', 'RUR')
-            else:
-                salary_from = None
-                salary_to = None
-                currency = 'RUR'
-            salary_str = 'не указана'
-            if salary_from and salary_to:
-                salary_str = f"{salary_from} - {salary_to} {currency}"
-            elif salary_from:
-                salary_str = f"от {salary_from} {currency}"
-            elif salary_to:
-                salary_str = f"до {salary_to} {currency}"
-
-            vacancy_data = {
-                'name': item.get('name'),
-                'company': item.get('employer', {}).get('name'),
-                'city': item.get('area', {}).get('name'),
-                'salary_from': salary_from,
-                'salary_to': salary_to,
-                'currency': currency,
-                'work_format': item.get('schedule', {}).get('name'),
-                'work_experience': item.get('experience', {}).get('name'),
-                'employment_type': item.get('employment', {}).get('name'),
-                'vacancy_url': f"https://hh.ru/vacancy/{item.get('id')}"
-            }
+                vacancy_data = {
+                    'name': item.get('name'),
+                    'company': item.get('employer', {}).get('name'),
+                    'city': item.get('area', {}).get('name'),
+                    'salary_from': salary_from,
+                    'salary_to': salary_to,
+                    'currency': currency,
+                    'work_format': item.get('schedule', {}).get('name'),
+                    'work_experience': item.get('experience', {}).get('name'),
+                    'employment_type': item.get('employment', {}).get('name'),
+                    'vacancy_url': f"https://hh.ru/vacancy/{item.get('id')}"
+                }
 
 
-            vacancies_to_insert.append(vacancy_data)
-            vacancy_output = f"""
-                    <p><b>Название вакансии:</b> {vacancy_data['name']}</p>
-                    <p><b>Компания:</b> {vacancy_data['company']}</p>
-                    <p><b>Город:</b> {vacancy_data['city']}</p>
-                    <p><b>Зарплата:</b> {salary_str}</p>
-                    <p><b>Формат работы:</b> {vacancy_data['work_format']}</p>
-                    <p><b>Требуемый опыт работы:</b> {vacancy_data['work_experience']}</p>
-                    <p><b>Занятость:</b> {vacancy_data['employment_type']}</p>
-                    <p><b>Ссылка на вакансию:</b> <a href="{vacancy_data['vacancy_url']}" target="_blank">{vacancy_data['vacancy_url']}</a></p>
-                    <br>
-                    """
-            put_html(vacancy_output)
-        for vacancy_data in vacancies_to_insert:
-            insert_vacancy_data(connection, vacancy_data)
+                vacancies_to_insert.append(vacancy_data)
+                vacancy_output = f"""
+                        <p><b>Название вакансии:</b> {vacancy_data['name']}</p>
+                        <p><b>Компания:</b> {vacancy_data['company']}</p>
+                        <p><b>Город:</b> {vacancy_data['city']}</p>
+                        <p><b>Зарплата:</b> {salary_str}</p>
+                        <p><b>Формат работы:</b> {vacancy_data['work_format']}</p>
+                        <p><b>Требуемый опыт работы:</b> {vacancy_data['work_experience']}</p>
+                        <p><b>Занятость:</b> {vacancy_data['employment_type']}</p>
+                        <p><b>Ссылка на вакансию:</b> <a href="{vacancy_data['vacancy_url']}" target="_blank">{vacancy_data['vacancy_url']}</a></p>
+                        <br>
+                        """
+                put_html(vacancy_output)
+            for vacancy_data in vacancies_to_insert:
+                insert_vacancy_data(connection, vacancy_data)
 
-        print('Все найденные вакансии были успешно добавлены в базу данных.')
-
-    finally:
-        def remove_duplicates(connection):
-            with connection.cursor() as cursor:
-                delete_query = """
-                DELETE FROM vacancies
-                WHERE ctid IN (
-                    SELECT ctid
-                    FROM (
-                        SELECT ctid, ROW_NUMBER() OVER (PARTITION BY vacancy_url ORDER BY ctid) AS rnum
+def remove_duplicates(connection):
+    with connection.cursor() as cursor:
+        delete_query = """
+        DELETE FROM vacancies
+        WHERE ctid IN (
+            SELECT ctid
+            FROM (
+                SELECT ctid, ROW_NUMBER() OVER (PARTITION BY vacancy_url ORDER BY ctid) AS rnum
                         FROM vacancies
-                    ) t
-                    WHERE t.rnum > 1
-                );
-                """
-                cursor.execute(delete_query)
-            connection.commit()
-        remove_duplicates(connection)
+            ) t
+            WHERE t.rnum > 1
+            );
+            """
+        print('Все найденные вакансии были успешно добавлены в базу данных.')
+        cursor.execute(delete_query)
+    connection.commit()
+remove_duplicates(connection)
 
 def main():
     data = input_group("Ввод данных для поиска вакансий", [

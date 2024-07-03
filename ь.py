@@ -72,16 +72,17 @@ def found_vacancies_and_fill_db(connection, vacancies_title=None, city_id=None, 
     has_more_pages = True
     count=0
     while has_more_pages and count<=200:
-        params = {
-            'text': vacancies_title,
-            'area': city_id,
-            'salary': salary,
-            'page': page
-        }
-        response = requests.get('https://api.hh.ru/vacancies', params=params)
-        vacancies = response.json()
-        page_items = vacancies.get('items', [])
-        count += 1
+        while has_more_pages and count <= 200:
+            params = {
+                'text': vacancies_title,
+                'area': city_id,
+                'salary': salary,
+                'page': page
+            }
+            response = requests.get('https://api.hh.ru/vacancies', params=params)
+            vacancies = response.json()
+            page_items = vacancies.get('items', [])
+            count += 1
         for item in page_items:
             name = item.get('name', '').lower()
             if vacancies_title.lower() in name.lower():
