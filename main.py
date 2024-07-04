@@ -84,8 +84,6 @@ def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, employment_t
             'employment': api_employment_type ,
             'page': page
         }
-        if api_employment_type:
-            params['employment'] = api_employment_type
         response = requests.get('https://api.hh.ru/vacancies', params=params)
         vacancies = response.json()
         page_items = vacancies.get('items', [])
