@@ -77,7 +77,7 @@ def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, employment_t
     has_more_pages = True
     api_employment_type = EMPLOYMENT_TYPE_MAP.get(employment_type, None)
 
-    while has_more_pages and page<=14:
+    while has_more_pages and page<=200:
         params = {
             'text': vacancies_title,
             'area': city_id,
