@@ -65,21 +65,32 @@ def insert_vacancy_data(connection, vacancy_data):
         ))
     connection.commit()
 
-def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, salary=None ):
+EMPLOYMENT_TYPE_MAP = {
+    'all': None,
+    'full': 'full',
+    'part': 'part',
+    'probation': 'probation',
+}
+def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, employment_type=None ):
     vacancies_to_insert = []
     page = 0
-    has_more_pages = 0
-    while has_more_pages<=20:
-        has_more_pages+=1
+    has_more_pages = True
+    api_employment_type = EMPLOYMENT_TYPE_MAP.get(employment_type, None)
+
+    while has_more_pages and page<=14:
         params = {
             'text': vacancies_title,
             'area': city_id,
-            'salary': salary,
+            'employment': api_employment_type ,
             'page': page
         }
+        if api_employment_type:
+            params['employment'] = api_employment_type
         response = requests.get('https://api.hh.ru/vacancies', params=params)
         vacancies = response.json()
         page_items = vacancies.get('items', [])
+        has_more_pages = vacancies.get('pages', page) > page
+
         for item in page_items:
             name = item.get('name', '').lower()
             if vacancies_title.lower() in name.lower():
@@ -127,9 +138,8 @@ def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, salary=None 
                         <br>
                         """
                 put_html(vacancy_output)
-            for vacancy_data in vacancies_to_insert:
                 insert_vacancy_data(connection, vacancy_data)
-
+        page+=1
 def remove_duplicates(connection):
     with connection.cursor() as cursor:
         delete_query = """
@@ -143,17 +153,20 @@ def remove_duplicates(connection):
             WHERE t.rnum > 1
             );
             """
-        print('Все найденные вакансии были успешно добавлены в базу данных.')
         cursor.execute(delete_query)
     connection.commit()
 remove_duplicates(connection)
 
 def main():
+    employment_options = list(EMPLOYMENT_TYPE_MAP.keys())
     data = input_group("Ввод данных для поиска вакансий", [
         input('Введите название вакансии', name='vacancies_title'),
         input('Введите идентификатор города (1 - Москва, 2 - Санкт-Петербург, 3 - Екатеринбург)', name='city_id', type='number'),
+        select('Выберите тип занятости (all - Не важно, full - Полная занятость, part - Частичная занятость, probation - Стажировка)', options=employment_options, name='employment_type')
     ])
+    user_selected_employment = data['employment_type']
+    api_employment_type = EMPLOYMENT_TYPE_MAP.get(user_selected_employment, None)
+    found_vacancies_and_fill_db(vacancies_title=data['vacancies_title'], city_id=data['city_id'], employment_type=api_employment_type)
 
-    found_vacancies_and_fill_db(vacancies_title=data['vacancies_title'], city_id=data['city_id'])
 if __name__ == '__main__':
-    start_server(main, port=9080)
+    start_server(main, port=8080)
