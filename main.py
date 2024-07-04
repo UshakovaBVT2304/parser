@@ -166,7 +166,7 @@ def main():
     employment_options = list(EMPLOYMENT_TYPE_MAP.keys())
     data = input_group("Ввод данных для поиска вакансий", [
         input('Введите название вакансии', name='vacancies_title'),
-        input('Введите идентификатор города (1 - Москва, 2 - Санкт-Петербург, 3 - Екатеринбург)', name='city_id', type='number'),
+        input('Введите идентификатор города (1 - Москва, 2 - Санкт-Петербург)', name='city_id', type='number'),
         select('Выберите тип занятости (all - Не важно, full - Полная занятость, part - Частичная занятость, probation - Стажировка)', options=employment_options, name='employment_type')
     ])
     user_selected_employment = data['employment_type']
