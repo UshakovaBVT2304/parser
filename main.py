@@ -138,13 +138,8 @@ def found_vacancies_and_fill_db(vacancies_title=None, city_id=None, employment_t
                         <br>
                         """
                 put_html(vacancy_output)
-
+                insert_vacancy_data(connection, vacancy_data)
         page+=1
-    if not vacancies_to_insert:
-        put_html("<p>Вакансии не найдены. Проверьте введённые фильтры и название.</p>")
-    else:
-        for vacancy_data in vacancies_to_insert:
-            insert_vacancy_data(connection, vacancy_data)
 def remove_duplicates(connection):
     with connection.cursor() as cursor:
         delete_query = """
